@@ -26,25 +26,33 @@
         <label for="amount-input">Значення</label>
         <input type="number" id="amount-input" name="amount">
 
-        <label for="from-unit">З одиниці</label>
-        <select id="from-unit" name="from-unit">
-          <option value="usd">USD</option>
-          <option value="eur">EUR</option>
-          <option value="uah">UAH</option>
-          <option value="uah">GBP</option>
-          <option value="uah">CHF</option>
-          <option value="uah">CNY</option>
-        </select>
+      <div class="unit-row">
+        <div class="unit-field">
+          <label for="from-unit">З одиниці</label>
+          <select id="from-unit" name="from-unit">
+            <option value="usd">USD</option>
+            <option value="eur">EUR</option>
+            <option value="uah">UAH</option>
+            <option value="uah">GBP</option>
+            <option value="uah">CHF</option>
+            <option value="uah">CNY</option>
+          </select>
+        </div>
 
-        <label for="to-unit">В одиницю</label>
-        <select id="to-unit" name="to-unit">
-          <option value="usd">USD</option>
-          <option value="eur">EUR</option>
-          <option value="uah">UAH</option>
-          <option value="uah">GBP</option>
-          <option value="uah">CHF</option>
-          <option value="uah">CNY</option>
-        </select>
+        <button type="button" class="swap-button" aria-label="Поміняти місцями одиниці">⇄</button>
+
+        <div class="unit-field">
+          <label for="to-unit">В одиницю</label>
+          <select id="to-unit" name="to-unit">
+            <option value="usd">USD</option>
+            <option value="eur">EUR</option>
+            <option value="uah">UAH</option>
+            <option value="uah">GBP</option>
+            <option value="uah">CHF</option>
+            <option value="uah">CNY</option>
+          </select>
+        </div>
+      </div>
 
         <button type="submit">Конвертувати</button>
       </form>

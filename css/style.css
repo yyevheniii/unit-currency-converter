@@ -65,3 +65,63 @@ footer {
   font-size: 0.85rem;
   color: #666666;
 }
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.unit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.unit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.swap-button {
+  align-self: center;
+  padding: 8px;
+  border: 1px solid #cccccc;
+  border-radius: 50%;
+  background-color: #ffffff;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+input,
+select {
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .unit-row {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  .unit-field {
+    flex: 1;
+  }
+}
+
+@media (min-width: 1024px) {
+  main {
+    max-width: 800px;
+    padding: 32px;
+  }
+
+  form {
+    gap: 20px;
+  }
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
