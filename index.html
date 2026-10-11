@@ -23,9 +23,9 @@
     <!-- Блок результату -->
     <section id="conversion-form">
       <h2>Форма конвертації</h2>
-      <form>
+      <form id="converter-form">
         <label for="amount-input">Значення</label>
-        <input type="number" id="amount-input" name="amount">
+        <input type="number" id="amount-input" name="amount" required min="0.01" step="any">
 
       <div class="unit-row">
         <div class="unit-field">
@@ -34,9 +34,6 @@
             <option value="usd">USD</option>
             <option value="eur">EUR</option>
             <option value="uah">UAH</option>
-            <option value="uah">GBP</option>
-            <option value="uah">CHF</option>
-            <option value="uah">CNY</option>
           </select>
         </div>
 
@@ -48,9 +45,6 @@
             <option value="usd">USD</option>
             <option value="eur">EUR</option>
             <option value="uah">UAH</option>
-            <option value="uah">GBP</option>
-            <option value="uah">CHF</option>
-            <option value="uah">CNY</option>
           </select>
         </div>
       </div>
@@ -60,6 +54,13 @@
 
       <p id="result">Результат: —</p>
     </section>
+
+    <!-- Історія конвертацій -->
+    <section id="history">
+      <h2>Історія конвертацій</h2>
+      <ul id="history-list"></ul>
+    </section>
+
     <!-- Список курсів валют -->
     <section id="rates">
       <h2>Курси валют</h2>
@@ -72,7 +73,5 @@
   <footer>
     <p>Курс є орієнтовним і може відрізнятися від актуального банківського курсу.</p>
   </footer>
-
 </body>
 </html>
-

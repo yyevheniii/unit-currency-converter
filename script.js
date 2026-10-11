@@ -56,3 +56,73 @@ function renderRates(ratesObj) {
 }
 
 renderRates(rates);
+
+const form = document.querySelector('#converter-form');
+const amountInput = document.querySelector('#amount-input');
+const fromSelect = document.querySelector('#from-unit');
+const toSelect = document.querySelector('#to-unit');
+const resultOutput = document.querySelector('#result');
+const historyList = document.querySelector('#history-list');
+
+const conversionHistory = [];
+
+// Виводить історію конвертацій на сторінку списком
+function renderHistory(historyArr) {
+  historyList.innerHTML = '';
+
+  for (const entry of historyArr) {
+    const item = document.createElement('li');
+    item.textContent = `${entry.amount} ${entry.from} = ${entry.result} ${entry.to}`;
+    historyList.append(item);
+  }
+}
+
+// Обробник submit: додає конвертацію в історію без перезавантаження сторінки
+form.addEventListener('submit', event => {
+  event.preventDefault();
+
+  const amount = Number(amountInput.value);
+  const from = fromSelect.value.toUpperCase();
+  const to = toSelect.value.toUpperCase();
+
+  const entry = {
+    amount,
+    from,
+    to,
+    result: Math.round(convert(amount, rates[to] / rates[from]) * 100) / 100
+  };
+  conversionHistory.push(entry);
+
+  renderHistory(conversionHistory);
+
+  form.reset();
+});
+
+// Обробник input: власна перевірка, що сума додатна
+amountInput.addEventListener('input', () => {
+  if (amountInput.value !== '' && Number(amountInput.value) <= 0) {
+    amountInput.setCustomValidity('Сума має бути додатною');
+  } else {
+    amountInput.setCustomValidity('');
+  }
+});
+
+// Перераховує результат і оновлює #result без сабміту форми
+function updateResult() {
+  const amount = Number(amountInput.value);
+
+  if (amountInput.value === '' || amount <= 0) {
+    resultOutput.textContent = 'Результат: —';
+    return;
+  }
+
+  
+  const from = fromSelect.value.toUpperCase();
+  const to = toSelect.value.toUpperCase();
+  const result = Math.round(convert(amount, rates[to] / rates[from]) * 100) / 100;
+  resultOutput.textContent = `Результат: ${amount} ${from} = ${result} ${to}`;
+}
+
+// Обробники change: миттєвий перерахунок при зміні одиниці
+fromSelect.addEventListener('change', updateResult);
+toSelect.addEventListener('change', updateResult);
