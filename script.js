@@ -1,5 +1,7 @@
 console.log('script.js підключено');
 
+const API_URL = 'https://api.frankfurter.dev/v1/latest?from=USD&to=EUR';
+
 const rates = { USD: 1, EUR: 0.92, UAH: 41.5 };
 
 const listContainer = document.querySelector('#rates-list');
@@ -116,7 +118,6 @@ function updateResult() {
     return;
   }
 
-  
   const from = fromSelect.value.toUpperCase();
   const to = toSelect.value.toUpperCase();
   const result = Math.round(convert(amount, rates[to] / rates[from]) * 100) / 100;
@@ -126,3 +127,44 @@ function updateResult() {
 // Обробники change: миттєвий перерахунок при зміні одиниці
 fromSelect.addEventListener('change', updateResult);
 toSelect.addEventListener('change', updateResult);
+
+
+const ratesInfo = document.querySelector('#rates-info');
+const ratesStatus = document.querySelector('#rates-status');
+const ratesError = document.querySelector('#rates-error');
+const refreshButton = document.querySelector('#refresh-button');
+
+// Отримує курс валюти з Frankfurter API (https://api.frankfurter.dev) і виводить його на сторінку, помилки показує користувачу
+async function loadData() {
+  ratesStatus.textContent = 'Завантаження…';
+  ratesError.textContent = '';
+
+  try {
+    const response = await fetch(API_URL);
+
+    if (!response.ok) {
+      const error = new Error(`Сервер відповів кодом ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    const data = await response.json();
+    console.log(data);
+
+    renderRates(data.rates);
+    ratesInfo.textContent = `Базова валюта: ${data.base}, дата: ${data.date}`;
+  } catch (error) {
+    if (error.status === 422 || error.status === 404) {
+      ratesError.textContent = 'Перевірте код валюти';
+    } else {
+      ratesError.textContent = 'Не вдалося отримати курси. Спробуйте пізніше.';
+    }
+    console.error(error);
+  } finally {
+    ratesStatus.textContent = '';
+  }
+}
+
+loadData();
+
+refreshButton.addEventListener('click', loadData);
