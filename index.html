@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Конвертер валют і одиниць</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -19,46 +20,12 @@
       <h2>Вибір типу конвертації</h2>
     </section>
 
-    <!-- Форма введення значення й одиниць -->
-    <!-- Блок результату -->
-    <section id="conversion-form">
+    <!-- Vue-компонент форми конвертації (практикум 10) -->
+    <section id="converter">
       <h2>Форма конвертації</h2>
-      <form id="converter-form">
-        <label for="amount-input">Значення</label>
-        <input type="number" id="amount-input" name="amount" required min="0.01" step="any">
-
-      <div class="unit-row">
-        <div class="unit-field">
-          <label for="from-unit">З одиниці</label>
-          <select id="from-unit" name="from-unit">
-            <option value="usd">USD</option>
-            <option value="eur">EUR</option>
-            <option value="uah">UAH</option>
-          </select>
-        </div>
-
-        <button type="button" class="swap-button" aria-label="Поміняти місцями одиниці">⇄</button>
-
-        <div class="unit-field">
-          <label for="to-unit">В одиницю</label>
-          <select id="to-unit" name="to-unit">
-            <option value="usd">USD</option>
-            <option value="eur">EUR</option>
-            <option value="uah">UAH</option>
-          </select>
-        </div>
+      <div id="app">
+        <converter-form :rates="rates"></converter-form>
       </div>
-
-        <button type="submit">Конвертувати</button>
-      </form>
-
-      <p id="result">Результат: —</p>
-    </section>
-
-    <!-- Історія конвертацій -->
-    <section id="history">
-      <h2>Історія конвертацій</h2>
-      <ul id="history-list"></ul>
     </section>
 
     <!-- Список курсів валют -->
@@ -77,5 +44,6 @@
   <footer>
     <p>Курс є орієнтовним і може відрізнятися від актуального банківського курсу.</p>
   </footer>
+
 </body>
 </html>

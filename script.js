@@ -1,3 +1,5 @@
+// Для практикуму 10 обрано Vue 3: його можна підключити одним CDN-тегом без збірки, а шаблони в HTML-стилі простіші для початку, ніж JSX із Babel.
+
 console.log('script.js підключено');
 
 const API_URL = 'https://api.frankfurter.dev/v1/latest?from=USD&to=EUR';
@@ -59,6 +61,9 @@ function renderRates(ratesObj) {
 
 renderRates(rates);
 
+// Практикум 10: ручний DOM-код форми й історії конвертацій (практикуми 7-8) замінено
+// Vue-компонентом ConverterForm (див. нижче), тому цей блок закоментовано.
+/*
 const form = document.querySelector('#converter-form');
 const amountInput = document.querySelector('#amount-input');
 const fromSelect = document.querySelector('#from-unit');
@@ -127,7 +132,7 @@ function updateResult() {
 // Обробники change: миттєвий перерахунок при зміні одиниці
 fromSelect.addEventListener('change', updateResult);
 toSelect.addEventListener('change', updateResult);
-
+*/
 
 const ratesInfo = document.querySelector('#rates-info');
 const ratesStatus = document.querySelector('#rates-status');
@@ -168,3 +173,65 @@ async function loadData() {
 loadData();
 
 refreshButton.addEventListener('click', loadData);
+
+// Компонент форми конвертації: власний стан amount, fromUnit, toUnit; result обчислюється автоматично
+const ConverterForm = {
+  props: ['rates'],
+  data() {
+    return {
+      amount: '',
+      fromUnit: 'USD',
+      toUnit: 'EUR'
+    };
+  },
+  computed: {
+    codes() {
+      return Object.keys(this.rates);
+    },
+    result() {
+      if (this.amount === '' || this.amount <= 0) {
+        return null;
+      }
+      const value = this.amount * (this.rates[this.toUnit] / this.rates[this.fromUnit]);
+      return Math.round(value * 100) / 100;
+    }
+  },
+  template: `
+    <form @submit.prevent>
+      <label for="vue-amount">Значення</label>
+      <input type="number" id="vue-amount" v-model.number="amount" min="0.01" step="any">
+
+      <div class="unit-row">
+        <div class="unit-field">
+          <label for="vue-from">З одиниці</label>
+          <select id="vue-from" v-model="fromUnit">
+            <option v-for="code in codes" :key="code" :value="code">{{ code }}</option>
+          </select>
+        </div>
+
+        <div class="unit-field">
+          <label for="vue-to">В одиницю</label>
+          <select id="vue-to" v-model="toUnit">
+            <option v-for="code in codes" :key="code" :value="code">{{ code }}</option>
+          </select>
+        </div>
+      </div>
+
+      <p>
+        Результат:
+        <span v-if="result !== null">{{ amount }} {{ fromUnit }} = {{ result }} {{ toUnit }}</span>
+        <span v-else>—</span>
+      </p>
+    </form>
+  `
+};
+
+// Кореневий застосунок Vue: зберігає курси в реактивному стані й передає їх у ConverterForm через props
+Vue.createApp({
+  components: { ConverterForm },
+  data() {
+    return {
+      rates: { USD: 1, EUR: 0.92, UAH: 41.5 }
+    };
+  }
+}).mount('#app');
