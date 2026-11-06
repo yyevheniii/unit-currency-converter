@@ -174,6 +174,93 @@ loadData();
 
 refreshButton.addEventListener('click', loadData);
 
+// ===== Практикум 11: локальні сховища даних =====
+
+const STORAGE_KEY = 'conversionHistory';
+const MIGRATION_FLAG = 'migrated';
+
+// Зберігає масив історії конвертацій у localStorage як JSON-рядок
+function saveToLocalStorage(items) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+// Читає історію з localStorage; якщо дані пошкоджені - повертає порожній масив
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (error) {
+    console.error('Пошкоджені дані в localStorage:', error);
+    return [];
+  }
+}
+
+const DB_NAME = 'ConverterDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'history';
+
+// Відкриває базу ConverterDB; при першому запуску створює сховище history з автоінкрементним ключем id
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Додає запис у сховище (put: створює новий запис, а якщо такий id уже є - оновлює його)
+async function addItem(item) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(item);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// Повертає всі записи зі сховища масивом
+async function getAllItems() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Одноразово переносить історію з localStorage в IndexedDB, якщо сховище порожнє; після цього ставить прапорець migrated
+async function migrateFromLocalStorage() {
+  if (localStorage.getItem(MIGRATION_FLAG) === 'true') {
+    return;
+  }
+
+  const existing = await getAllItems();
+  const oldItems = loadFromLocalStorage();
+
+  if (existing.length === 0 && oldItems.length > 0) {
+    for (const item of oldItems) {
+      await addItem(item);
+    }
+    console.log(`Міграція: перенесено записів - ${oldItems.length}`);
+  }
+
+  localStorage.setItem(MIGRATION_FLAG, 'true');
+}
+
+// Модель запису історії конвертацій: from, to, amount, result, timestamp.
+// Поле id не задаємо вручну - його автоматично створює IndexedDB (autoIncrement)
+function createHistoryEntry(amount, from, to, result) {
+  return { from, to, amount, result, timestamp: Date.now() };
+}
+
 // Компонент форми конвертації: власний стан amount, fromUnit, toUnit; result обчислюється автоматично
 const ConverterForm = {
   props: ['rates'],
@@ -181,7 +268,9 @@ const ConverterForm = {
     return {
       amount: '',
       fromUnit: 'USD',
-      toUnit: 'EUR'
+      toUnit: 'EUR',
+      history: [],
+      dbError: ''
     };
   },
   computed: {
@@ -194,35 +283,83 @@ const ConverterForm = {
       }
       const value = this.amount * (this.rates[this.toUnit] / this.rates[this.fromUnit]);
       return Math.round(value * 100) / 100;
+    },
+    // Останні 10 записів: сортуємо за timestamp від нових до старих
+    lastHistory() {
+      return [...this.history].sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
+    }
+  },
+  async mounted() {
+    try {
+      await migrateFromLocalStorage();
+      await this.loadHistory();
+    } catch (error) {
+      this.showDbError(error);
+    }
+  },
+  methods: {
+    // Читає всі записи з IndexedDB і оновлює список на екрані
+    async loadHistory() {
+      this.history = await getAllItems();
+    },
+    // Додає конвертацію в IndexedDB і оновлює список; при помилці показує повідомлення
+    async convertAndSave() {
+      if (this.result === null) {
+        return;
+      }
+      try {
+        await addItem(createHistoryEntry(this.amount, this.fromUnit, this.toUnit, this.result));
+        await this.loadHistory();
+      } catch (error) {
+        this.showDbError(error);
+      }
+    },
+    // Виводить користувачу зрозуміле повідомлення, якщо IndexedDB недоступна
+    showDbError(error) {
+      console.error(error);
+      this.dbError = 'Не вдалося відкрити сховище даних (IndexedDB). Історія конвертацій недоступна - можливо, увімкнено приватний режим перегляду.';
     }
   },
   template: `
-    <form @submit.prevent>
-      <label for="vue-amount">Значення</label>
-      <input type="number" id="vue-amount" v-model.number="amount" min="0.01" step="any">
+    <div>
+      <form @submit.prevent="convertAndSave">
+        <label for="vue-amount">Значення</label>
+        <input type="number" id="vue-amount" v-model.number="amount" min="0.01" step="any">
 
-      <div class="unit-row">
-        <div class="unit-field">
-          <label for="vue-from">З одиниці</label>
-          <select id="vue-from" v-model="fromUnit">
-            <option v-for="code in codes" :key="code" :value="code">{{ code }}</option>
-          </select>
+        <div class="unit-row">
+          <div class="unit-field">
+            <label for="vue-from">З одиниці</label>
+            <select id="vue-from" v-model="fromUnit">
+              <option v-for="code in codes" :key="code" :value="code">{{ code }}</option>
+            </select>
+          </div>
+
+          <div class="unit-field">
+            <label for="vue-to">В одиницю</label>
+            <select id="vue-to" v-model="toUnit">
+              <option v-for="code in codes" :key="code" :value="code">{{ code }}</option>
+            </select>
+          </div>
         </div>
 
-        <div class="unit-field">
-          <label for="vue-to">В одиницю</label>
-          <select id="vue-to" v-model="toUnit">
-            <option v-for="code in codes" :key="code" :value="code">{{ code }}</option>
-          </select>
-        </div>
+        <p>
+          Результат:
+          <span v-if="result !== null">{{ amount }} {{ fromUnit }} = {{ result }} {{ toUnit }}</span>
+          <span v-else>—</span>
+        </p>
+
+        <button type="submit">Конвертувати</button>
+      </form>
+
+      <div class="history">
+        <h3>Історія конвертацій</h3>
+        <p v-if="dbError" role="alert">{{ dbError }}</p>
+        <p v-else-if="lastHistory.length === 0">Історія порожня</p>
+        <ul v-else>
+          <li v-for="entry in lastHistory" :key="entry.id">{{ entry.amount }} {{ entry.from }} = {{ entry.result }} {{ entry.to }}</li>
+        </ul>
       </div>
-
-      <p>
-        Результат:
-        <span v-if="result !== null">{{ amount }} {{ fromUnit }} = {{ result }} {{ toUnit }}</span>
-        <span v-else>—</span>
-      </p>
-    </form>
+    </div>
   `
 };
 
