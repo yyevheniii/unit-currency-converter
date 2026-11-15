@@ -143,6 +143,17 @@ img {
   height: auto;
 }
 
+/* Практикум 12: Canvas-графік історії конвертацій.
+   max-width і height: auto стискають полотно на вузьких екранах, зберігаючи пропорції */
+canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background-color: var(--color-surface);
+}
+
 @media (min-width: 600px) {
   .unit-row {
     flex-direction: row;

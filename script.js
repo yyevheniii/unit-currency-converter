@@ -287,15 +287,22 @@ const ConverterForm = {
     // Останні 10 записів: сортуємо за timestamp від нових до старих
     lastHistory() {
       return [...this.history].sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
+    },
+    // Значення результатів для графіка: останні 10 записів історії від старих до нових
+    chartValues() {
+      return this.lastHistory.slice().reverse().map(entry => entry.result);
     }
   },
   async mounted() {
+    this.ctx = this.$refs.chart.getContext('2d');
+    this.animationId = null;
     try {
       await migrateFromLocalStorage();
       await this.loadHistory();
     } catch (error) {
       this.showDbError(error);
     }
+    this.animateChart();
   },
   methods: {
     // Читає всі записи з IndexedDB і оновлює список на екрані
@@ -310,6 +317,7 @@ const ConverterForm = {
       try {
         await addItem(createHistoryEntry(this.amount, this.fromUnit, this.toUnit, this.result));
         await this.loadHistory();
+        this.animateChart();
       } catch (error) {
         this.showDbError(error);
       }
@@ -318,7 +326,105 @@ const ConverterForm = {
     showDbError(error) {
       console.error(error);
       this.dbError = 'Не вдалося відкрити сховище даних (IndexedDB). Історія конвертацій недоступна - можливо, увімкнено приватний режим перегляду.';
+    },
+    // Малює кадр графіка: осі, ламану лінію й точки; progress (від 0 до 1) визначає, яку частину лінії вже намальовано
+    drawChart(progress) {
+      const ctx = this.ctx;
+      const width = ctx.canvas.width;
+      const height = ctx.canvas.height;
+      const values = this.chartValues;
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (values.length === 0) {
+        ctx.fillStyle = '#4a5568';
+        ctx.font = '16px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Немає даних для графіка', width / 2, height / 2);
+        return;
+      }
+
+      const padding = { left: 56, right: 20, top: 20, bottom: 30 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+      const maxValue = Math.max(...values) || 1;
+
+      // Осі графіка
+      ctx.strokeStyle = '#4a5568';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, padding.top);
+      ctx.lineTo(padding.left, height - padding.bottom);
+      ctx.lineTo(width - padding.right, height - padding.bottom);
+      ctx.stroke();
+
+      // Підписи осі Y: нуль і максимальне значення
+      ctx.fillStyle = '#4a5568';
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('0', padding.left - 8, height - padding.bottom + 4);
+      ctx.fillText(String(maxValue), padding.left - 8, padding.top + 4);
+
+      // Координати точок обчислюємо із записів історії
+      const points = values.map((value, index) => ({
+        x: values.length === 1
+          ? padding.left + plotWidth / 2
+          : padding.left + (plotWidth / (values.length - 1)) * index,
+        y: height - padding.bottom - (value / maxValue) * plotHeight
+      }));
+
+      // Скільки сегментів лінії вже намальовано (дробове число: частина останнього сегмента)
+      const visibleSegments = progress * (points.length - 1);
+      const fullSegments = Math.floor(visibleSegments);
+
+      // Ламана лінія до поточного прогресу
+      ctx.strokeStyle = '#2c5282';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i <= fullSegments; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      if (fullSegments < points.length - 1) {
+        const from = points[fullSegments];
+        const to = points[fullSegments + 1];
+        const part = visibleSegments - fullSegments;
+        ctx.lineTo(from.x + (to.x - from.x) * part, from.y + (to.y - from.y) * part);
+      }
+      ctx.stroke();
+
+      // Точки, до яких лінія вже дійшла
+      ctx.fillStyle = '#1a365d';
+      for (let i = 0; i <= fullSegments && i < points.length; i++) {
+        ctx.beginPath();
+        ctx.arc(points[i].x, points[i].y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    },
+    // Запускає анімацію побудови графіка через requestAnimationFrame; попередню анімацію скасовує, щоб цикли не накладалися
+    animateChart() {
+      cancelAnimationFrame(this.animationId);
+
+      const duration = 800;
+      let startTime = null;
+
+      const frame = (time) => {
+        if (startTime === null) {
+          startTime = time;
+        }
+        const progress = Math.min((time - startTime) / duration, 1);
+        this.drawChart(progress);
+        if (progress < 1) {
+          this.animationId = requestAnimationFrame(frame);
+        }
+      };
+
+      this.animationId = requestAnimationFrame(frame);
     }
+  },
+  // Зупиняє анімацію, коли компонент прибирається зі сторінки
+  beforeUnmount() {
+    cancelAnimationFrame(this.animationId);
   },
   template: `
     <div>
@@ -358,6 +464,11 @@ const ConverterForm = {
         <ul v-else>
           <li v-for="entry in lastHistory" :key="entry.id">{{ entry.amount }} {{ entry.from }} = {{ entry.result }} {{ entry.to }}</li>
         </ul>
+      </div>
+
+      <div class="chart">
+        <h3>Графік результатів конвертацій</h3>
+        <canvas ref="chart" width="600" height="240" aria-label="Графік останніх результатів конвертацій"></canvas>
       </div>
     </div>
   `
