@@ -9,27 +9,26 @@
   <script src="script.js" defer></script>
 </head>
 <body>
-  <!-- Шапка з назвою застосунку -->
+  <!-- Шапка з назвою застосунку та меню SPA -->
   <header>
     <h1>Конвертер валют і одиниць</h1>
+    <nav>
+      <a href="#/" data-link>Конвертація</a>
+      <a href="#/history" data-link>Історія</a>
+    </nav>
   </header>
 
   <main>
-    <!-- Блок вибору типу конвертації (валюта/довжина/вага) -->
-    <section id="conversion-type">
+    <!-- Блок вибору типу конвертації (валюта/довжина/вага); показується лише на головній -->
+    <section id="conversion-type" class="home-only">
       <h2>Вибір типу конвертації</h2>
     </section>
 
-    <!-- Vue-компонент форми конвертації (практикум 10) -->
-    <section id="converter">
-      <h2>Форма конвертації</h2>
-      <div id="app">
-        <converter-form :rates="rates"></converter-form>
-      </div>
-    </section>
+    <!-- Практикум 13: контейнер SPA, у який роутер рендерить усі «сторінки» -->
+    <div id="page"></div>
 
-    <!-- Список курсів валют -->
-    <section id="rates">
+    <!-- Список курсів валют; показується лише на головній -->
+    <section id="rates" class="home-only">
       <h2>Курси валют</h2>
       <button type="button" id="refresh-button">Оновити</button>
       <p id="rates-status"></p>

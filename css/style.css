@@ -47,6 +47,21 @@ header h1 {
   margin: 0;
 }
 
+/* Практикум 13: меню SPA в шапці */
+header nav {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+header nav a {
+  color: #ffffff;
+}
+
+main a {
+  color: var(--color-primary);
+}
+
 main {
   max-width: 600px;
   margin: 0 auto;

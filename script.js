@@ -261,6 +261,21 @@ function createHistoryEntry(amount, from, to, result) {
   return { from, to, amount, result, timestamp: Date.now() };
 }
 
+// Виводить історію конвертацій списком у переданий контейнер (функція з практикуму 7); кожен запис - посилання на сторінку деталей
+function renderHistory(historyArr, container) {
+  container.innerHTML = '';
+
+  for (const entry of historyArr) {
+    const item = document.createElement('li');
+    const link = document.createElement('a');
+    link.href = `#/history/${entry.id}`;
+    link.setAttribute('data-link', '');
+    link.textContent = `${entry.amount} ${entry.from} = ${entry.result} ${entry.to}`;
+    item.append(link);
+    container.append(item);
+  }
+}
+
 // Компонент форми конвертації: власний стан amount, fromUnit, toUnit; result обчислюється автоматично
 const ConverterForm = {
   props: ['rates'],
@@ -474,12 +489,219 @@ const ConverterForm = {
   `
 };
 
-// Кореневий застосунок Vue: зберігає курси в реактивному стані й передає їх у ConverterForm через props
-Vue.createApp({
-  components: { ConverterForm },
-  data() {
-    return {
-      rates: { USD: 1, EUR: 0.92, UAH: 41.5 }
-    };
+// Створює кореневий застосунок Vue: зберігає курси в реактивному стані й передає їх у ConverterForm через props.
+// Це функція, а не одноразовий виклик, бо роутер (router.js) монтує застосунок щоразу, коли користувач потрапляє на маршрут «/»
+function createConverterApp() {
+  return Vue.createApp({
+    components: { ConverterForm },
+    data() {
+      return {
+        rates: { USD: 1, EUR: 0.92, UAH: 41.5 }
+      };
+    }
+  });
+}
+
+// ===== Практикум 13: SPA з клієнтською маршрутизацією (hash-based, location.hash) =====
+
+// Контейнер, у який роутер рендерить усі «сторінки»
+const page = document.querySelector('#page');
+
+// Поточний Vue-застосунок (існує лише на маршруті «/»); його треба розмонтувати при виході зі сторінки
+let currentApp = null;
+
+// Таблиця маршрутів: патерн шляху - view-функція. Шлях береться з location.hash (hash-роутинг),
+// сегмент :id у патерні віддає значення параметра у view (id запису в сховищі "history")
+const routes = [
+  { path: '/', view: renderHome },
+  { path: '/history', view: renderHistoryList },
+  { path: '/history/:id', view: renderHistoryDetail }
+];
+
+// Порівнює шлях з патернами з таблиці маршрутів і витягує параметри; якщо збігу немає - повертає null
+function matchRoute(path) {
+  const pathParts = path.split('/').filter(Boolean);
+
+  for (const route of routes) {
+    const routeParts = route.path.split('/').filter(Boolean);
+    if (routeParts.length !== pathParts.length) continue;
+
+    const params = {};
+    const isMatch = routeParts.every((part, i) => {
+      if (part.startsWith(':')) {
+        params[part.slice(1)] = pathParts[i];
+        return true;
+      }
+      return part === pathParts[i];
+    });
+
+    if (isMatch) return { view: route.view, params };
   }
-}).mount('#app');
+
+  return null; // маршрут не знайдено - сторінка 404
+}
+
+// Очищує контейнер; якщо на сторінці був Vue-застосунок, спочатку розмонтовує його (це зупиняє анімацію графіка)
+function clearPage() {
+  if (currentApp !== null) {
+    currentApp.unmount();
+    currentApp = null;
+  }
+  page.innerHTML = '';
+}
+
+// Створює абзац із текстом
+function createParagraph(text) {
+  const paragraph = document.createElement('p');
+  paragraph.textContent = text;
+  return paragraph;
+}
+
+// Створює внутрішнє посилання для клієнтської навігації (атрибут data-link)
+function createLink(href, text) {
+  const link = document.createElement('a');
+  link.href = href;
+  link.setAttribute('data-link', '');
+  link.textContent = text;
+  return link;
+}
+
+// View «/»: форма конвертації (Vue-компонент з практикуму 10)
+function renderHome() {
+  clearPage();
+
+  const section = document.createElement('section');
+  section.id = 'converter';
+  section.innerHTML = `
+    <h2>Форма конвертації</h2>
+    <div id="app">
+      <converter-form :rates="rates"></converter-form>
+    </div>
+  `;
+  page.append(section);
+
+  currentApp = createConverterApp();
+  currentApp.mount('#app');
+}
+
+// View «/history»: історія конвертацій зі сховища IndexedDB (практикум 11), список малює renderHistory (практикум 7)
+async function renderHistoryList() {
+  clearPage();
+
+  const section = document.createElement('section');
+  const title = document.createElement('h2');
+  title.textContent = 'Історія конвертацій';
+  section.append(title);
+  page.append(section);
+
+  try {
+    const items = await getAllItems();
+    if (!section.isConnected) return; // користувач уже перейшов на іншу сторінку
+
+    if (items.length === 0) {
+      section.append(createParagraph('Історія порожня'));
+      return;
+    }
+
+    items.sort((a, b) => b.timestamp - a.timestamp);
+    const list = document.createElement('ul');
+    renderHistory(items, list);
+    section.append(list);
+  } catch (error) {
+    console.error(error);
+    section.append(createParagraph('Не вдалося відкрити сховище даних (IndexedDB).'));
+  }
+}
+
+// View «/history/:id»: деталі однієї конвертації - знаходимо запис за id серед даних зі сховища й показуємо саме його
+async function renderHistoryDetail(params) {
+  clearPage();
+
+  const section = document.createElement('section');
+  const title = document.createElement('h2');
+  title.textContent = 'Деталі конвертації';
+  section.append(title);
+  page.append(section);
+
+  try {
+    const items = await getAllItems();
+    if (!section.isConnected) return; // користувач уже перейшов на іншу сторінку
+
+    const entry = items.find(item => item.id === Number(params.id));
+
+    if (!entry) {
+      section.append(createParagraph(`Запис з id ${params.id} не знайдено.`));
+    } else {
+      const fields = [
+        ['З', entry.from],
+        ['В', entry.to],
+        ['Сума', entry.amount],
+        ['Результат', entry.result],
+        ['Час', new Date(entry.timestamp).toLocaleString('uk-UA')]
+      ];
+
+      const details = document.createElement('dl');
+      for (const [label, value] of fields) {
+        const term = document.createElement('dt');
+        term.textContent = label;
+        const description = document.createElement('dd');
+        description.textContent = value;
+        details.append(term, description);
+      }
+      section.append(details);
+    }
+
+    section.append(createLink('#/history', '← До історії'));
+  } catch (error) {
+    console.error(error);
+    section.append(createParagraph('Не вдалося відкрити сховище даних (IndexedDB).'));
+  }
+}
+
+// View для неіснуючого маршруту: проста сторінка «Не знайдено» з посиланням на головну
+function renderNotFound() {
+  clearPage();
+
+  const section = document.createElement('section');
+  const title = document.createElement('h2');
+  title.textContent = 'Сторінку не знайдено';
+  section.append(title, createParagraph('Такої адреси немає в застосунку.'), createLink('#/', 'На головну'));
+  page.append(section);
+}
+
+// Визначає поточний шлях із location.hash, знаходить view і викликає її;
+// блоки «Вибір типу конвертації» та «Курси валют» (поза контейнером) показуємо тільки на головній
+function render() {
+  const path = location.hash.slice(1) || '/';
+  const match = matchRoute(path);
+
+  const isHome = match !== null && match.view === renderHome;
+  document.querySelectorAll('.home-only').forEach(block => {
+    block.hidden = !isHome;
+  });
+
+  if (match === null) {
+    renderNotFound();
+    return;
+  }
+
+  match.view(match.params);
+}
+
+// Перехід на маршрут: у hash-роутингу достатньо змінити location.hash, а подію hashchange обробить render
+function navigate(path) {
+  location.hash = path;
+}
+
+// Перехоплюємо кліки по внутрішніх посиланнях (a[data-link]) і замість звичайного переходу викликаємо navigate()
+document.addEventListener('click', (event) => {
+  const link = event.target.closest('a[data-link]');
+  if (!link) return;
+
+  event.preventDefault();
+  navigate(link.getAttribute('href').slice(1));
+});
+
+// Кнопки «назад»/«вперед» і зміна хеша вручну перемальовують вміст; початковий рендер - після завантаження сторінки
+window.addEventListener('hashchange', render);
+window.addEventListener('DOMContentLoaded', render);
