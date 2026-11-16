@@ -2,7 +2,7 @@
 
 console.log('script.js підключено');
 
-const API_URL = 'https://api.frankfurter.dev/v1/latest?from=USD&to=EUR';
+const API_URL = '/api/rates';
 
 const rates = { USD: 1, EUR: 0.92, UAH: 41.5 };
 
@@ -139,7 +139,7 @@ const ratesStatus = document.querySelector('#rates-status');
 const ratesError = document.querySelector('#rates-error');
 const refreshButton = document.querySelector('#refresh-button');
 
-// Отримує курс валюти з Frankfurter API (https://api.frankfurter.dev) і виводить його на сторінку, помилки показує користувачу
+// Отримує курси валют із власного сервера (/api/rates) і виводить його на сторінку, помилки показує користувачу
 async function loadData() {
   ratesStatus.textContent = 'Завантаження…';
   ratesError.textContent = '';
